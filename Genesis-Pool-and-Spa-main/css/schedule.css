@@ -1,0 +1,243 @@
+/* ================================================
+   Schedule Page — Additional Styles
+   ================================================ */
+
+/* ── HERO ──────────────────────────────────────── */
+.sched-hero {
+  position: relative;
+  min-height: 52vh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.sched-hero-bg {
+  position: absolute;
+  inset: 0;
+  background: url('https://static.wixstatic.com/media/43c971_56df4ac135ec4337a61797214a7dd8e8~mv2.jpg') center top / cover no-repeat;
+  z-index: 0;
+}
+.sched-hero-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 45, 120, 0.72);
+}
+.sched-hero-bg::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 40%;
+  background: linear-gradient(to top, rgba(13,71,161,0.5), transparent);
+}
+
+.sched-hero-content {
+  position: relative;
+  z-index: 1;
+  padding-top: 155px;
+  padding-bottom: 80px;
+  text-align: center;
+}
+
+.sched-badge {
+  display: inline-block;
+  background: #FFB300;
+  color: #0D2A6B;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 7px 20px;
+  border-radius: 50px;
+  margin-bottom: 24px;
+}
+
+.sched-hero-content h1 {
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.1;
+  margin-bottom: 20px;
+  letter-spacing: -0.02em;
+}
+.sched-hero-content h1 .highlight { color: #90CAF9; }
+
+.sched-hero-content p {
+  font-size: clamp(1rem, 2vw, 1.15rem);
+  color: rgba(255,255,255,0.85);
+  max-width: 540px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+
+/* ── WHAT TO EXPECT ────────────────────────────── */
+.expect-section {
+  padding: 72px 0 56px;
+  background: #fff;
+}
+
+.expect-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.expect-card {
+  text-align: center;
+  padding: 32px 20px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition);
+}
+.expect-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-xl);
+  background: #fff;
+}
+
+.expect-icon {
+  width: 56px;
+  height: 56px;
+  background: var(--primary-xl);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+  color: var(--primary);
+}
+.expect-icon svg { width: 24px; height: 24px; }
+
+.expect-card h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin-bottom: 8px;
+}
+.expect-card p {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+  line-height: 1.65;
+}
+
+
+/* ── FORM SECTION ──────────────────────────────── */
+.sched-form-section {
+  padding: 80px 0 100px;
+  background: var(--gray-50);
+}
+
+.sched-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 72px;
+  align-items: start;
+}
+
+.sched-info .section-label { display: block; margin-bottom: 16px; }
+
+.sched-info h2 {
+  font-size: clamp(1.75rem, 3vw, 2.4rem);
+  font-weight: 700;
+  color: var(--gray-800);
+  line-height: 1.2;
+  margin-bottom: 18px;
+}
+
+.sched-info > p {
+  color: var(--gray-600);
+  line-height: 1.7;
+  margin-bottom: 28px;
+}
+
+.sched-call-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--primary);
+  color: #fff;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  padding: 14px 28px;
+  border-radius: 50px;
+  margin-bottom: 36px;
+  transition: all var(--transition);
+}
+.sched-call-btn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(21,101,192,0.3);
+}
+
+.sched-trust {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.trust-item {
+  font-size: 0.9rem;
+  color: var(--gray-600);
+  font-weight: 500;
+}
+.trust-item::before { color: var(--primary); margin-right: 4px; }
+
+/* Form card */
+.sched-form-wrap {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  padding: 48px 44px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--gray-100);
+}
+
+.sched-form h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin-bottom: 22px;
+}
+
+.form-section-title {
+  margin-top: 28px;
+  padding-top: 28px;
+  border-top: 1px solid var(--gray-100);
+}
+
+.sched-submit {
+  margin-top: 8px;
+  font-size: 1.05rem;
+  padding: 16px 32px;
+}
+
+.form-success a {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+
+/* ── RESPONSIVE ────────────────────────────────── */
+@media (max-width: 1024px) {
+  .expect-grid  { grid-template-columns: repeat(2, 1fr); }
+  .sched-layout { grid-template-columns: 1fr; gap: 48px; }
+}
+
+@media (max-width: 768px) {
+  .sched-hero-content { padding-top: 135px; padding-bottom: 60px; }
+  .expect-section     { padding: 56px 0 40px; }
+  .sched-form-section { padding: 60px 0 80px; }
+  .sched-form-wrap    { padding: 32px 24px; }
+  .sched-layout       { gap: 40px; }
+}
+
+@media (max-width: 480px) {
+  .expect-grid        { grid-template-columns: 1fr; gap: 14px; }
+  .sched-hero-content { padding-top: 128px; }
+  .sched-hero-content h1 { font-size: 2.1rem; }
+  .sched-form-wrap    { padding: 24px 16px; }
+  .form-row           { grid-template-columns: 1fr; gap: 0; }
+}
