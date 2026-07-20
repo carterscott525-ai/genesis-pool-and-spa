@@ -112,7 +112,7 @@
     <div class="container sched-layout">
 
       <div class="sched-info">
-        <span class="section-label">Book Your Visit</span>
+        <span class="section-label">Schedule Your Free Cleaning and Chemical Balance</span>
         <h2>Request Your<br>Free Appointment</h2>
         <p>Fill out the form and we'll confirm your appointment within 24 hours. Prefer to talk? Call us directly.</p>
         <a href="tel:9162514798" class="sched-call-btn">
@@ -128,22 +128,9 @@
       </div>
 
       <div class="sched-form-wrap">
-        <!--
-          FormSubmit.co sends every submission to your email.
-          FIRST submission triggers a one-time verification email — click it once and all future bookings arrive automatically.
-          Change the email below if needed.
-        -->
-        <form
-          action="https://formsubmit.co/contact@genesispoolandspa.com"
-          method="POST"
-          id="schedForm"
-        >
-          <!-- FormSubmit config -->
-          <input type="hidden" name="_subject" value="New FREE Chemical Balancing + Cleaning Booking — Genesis Pool and Spa">
-          <input type="hidden" name="_next" value="https://beautymapped.github.io/pool1/thankyou.html">
-          <input type="hidden" name="_captcha" value="false">
-          <input type="hidden" name="_template" value="table">
-          <input type="text" name="_honey" style="display:none">
+        <form id="schedForm">
+          <!-- Spam honeypot: real visitors never see/fill this field -->
+          <input type="text" name="_honey" style="display:none" tabindex="-1" autocomplete="off">
 
           <h3>Your Information</h3>
 
@@ -195,7 +182,7 @@
               <label for="prefTime">Preferred Time *</label>
               <select id="prefTime" name="Preferred Time" required>
                 <option value="">Select...</option>
-                <option value="Morning (8am – 12pm)">Morning (8am – 12pm)</option>
+                <option value="Morning (6am – 12pm)">Morning (6am – 12pm)</option>
                 <option value="Afternoon (12pm – 4pm)">Afternoon (12pm – 4pm)</option>
                 <option value="Late Afternoon (4pm – 6pm)">Late Afternoon (4pm – 6pm)</option>
               </select>
@@ -223,7 +210,7 @@
           </div>
 
           <button type="submit" class="btn btn-primary btn-full sched-submit">
-            Request My Free Cleaning &amp; Chemical Balance
+            Submit
           </button>
         </form>
       </div>
@@ -281,13 +268,24 @@
     document.getElementById('altDate').setAttribute('min', today);
 
     const schedForm = document.getElementById('schedForm');
-    schedForm.addEventListener('submit', function () {
+    schedForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      // Honeypot: real visitors never fill this hidden field.
+      if (schedForm.querySelector('[name="_honey"]').value) return;
+
+      const fd = new FormData(schedForm);
+      fd.append('Form Source', 'Schedule Form');
+
+      const goToThankYou = function () { window.location.href = 'thankyou.html'; };
+
       if (window.APPS_SCRIPT_URL && window.APPS_SCRIPT_URL.indexOf('REPLACE_WITH') === -1) {
-        const fd = new FormData(schedForm);
-        fd.append('Form Source', 'Schedule Form');
-        // sendBeacon (not fetch) so this isn't cancelled by the page
-        // navigating away to FormSubmit.co right after this fires.
-        navigator.sendBeacon(window.APPS_SCRIPT_URL, fd);
+        // Booking is logged to the Sheet and texted to the boss (see Code.gs).
+        fetch(window.APPS_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: fd })
+          .catch(function () {})
+          .then(goToThankYou);
+      } else {
+        goToThankYou();
       }
     });
   </script>

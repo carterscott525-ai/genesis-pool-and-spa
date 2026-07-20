@@ -8,12 +8,23 @@ changes here.
 
 Receives `doPost` submissions from both site forms (see [`plan.md`](plan.md)'s "Contact
 Preference Popup — Lead Routing Plan" section for the client-side wiring):
-- `Genesis-Pool-and-Spa-main/schedule.html` (`schedForm`, via `navigator.sendBeacon`)
+- `Genesis-Pool-and-Spa-main/schedule.html` (`schedForm`, via `fetch(...,
+  {mode:'no-cors'})`, awaited before navigating to `thankyou.html`)
 - `Genesis-Pool-and-Spa-main/index.html` `#contact` (`contactForm`, via `fetch(...,
   {mode:'no-cors'})`)
 
 Both forms append a `Form Source` field (`'Schedule Form'` / `'Contact Form'`) that the
 script uses to route the row to the correct tab.
+
+**`schedule.html` no longer uses FormSubmit.co.** It used to `POST` directly to
+`https://formsubmit.co/contact@genesispoolandspa.com` (email notification, with a
+one-time "click to activate" step) and rely on FormSubmit's `_next` hidden field to
+redirect to `thankyou.html` after submitting. That's been replaced entirely: the form now
+only posts to this Apps Script, which logs the row *and* texts the boss (see "Twilio SMS
+on new bookings" below); the page navigates to `thankyou.html` itself once that request
+resolves. One side effect worth noting: the old `_next` value
+(`https://beautymapped.github.io/pool1/thankyou.html`) was actually pointed at the wrong
+site/repo — a latent bug that's now moot since it's gone.
 
 ## Change from the original single-sheet design
 
@@ -48,12 +59,36 @@ bundle label) is captured automatically. What *was* missing is fixed below: the 
 now always writes `Service Interested In` into the `Contact Form Submissions` tab's
 column of that name, so a bundle signup is never silently dropped or misfiled.
 
+## Twilio SMS on new bookings (replaces FormSubmit.co email)
+
+Every `Booking Requests` row (i.e. every `schedule.html` submission — not
+`Contact Form Submissions`) now also fires an SMS to the boss via Twilio's REST API,
+straight from `doPost`, instead of relying on FormSubmit.co's email delivery. See
+[`twilio.md`](twilio.md) for the number/account context.
+
+**Credentials are never hardcoded in this script** — they're read at runtime from Apps
+Script **Script Properties** (per-project key/value config, not part of the source code),
+since `Code.gs` is documented here in a git repo. Set these once in the Apps Script
+editor under **Project Settings (gear icon) → Script Properties**:
+
+| Property key          | Value                                                        |
+|------------------------|--------------------------------------------------------------|
+| `TWILIO_ACCOUNT_SID`    | From the Twilio Console                                      |
+| `TWILIO_AUTH_TOKEN`     | From the Twilio Console — keep secret                        |
+| `TWILIO_FROM_NUMBER`    | `+19162514798` (the Twilio number already live on the site)  |
+| `BOSS_PHONE_NUMBER`     | Whoever should get the "new booking" text, in `+1XXXXXXXXXX` form |
+
+If any of those four properties is missing, `notifyBossOfBooking_` silently no-ops (the
+Sheet logging still happens either way — a missing/misconfigured Twilio credential never
+blocks a booking from being recorded).
+
 ## `Code.gs`
 
 ```javascript
 /**
  * Genesis Pool and Spa — lead logging Web App.
- * Routes schedule.html and index.html #contact submissions to separate tabs.
+ * Routes schedule.html and index.html #contact submissions to separate tabs,
+ * and texts the boss via Twilio when a new booking comes in.
  */
 
 var BOOKING_SHEET_NAME = 'Booking Requests';
@@ -87,11 +122,12 @@ var CONTACT_HEADERS = [
 function doPost(e) {
   var params = (e && e.parameter) || {};
   var formSource = params['Form Source'];
+  var isBooking = formSource !== 'Contact Form';
 
-  var sheetName = formSource === 'Contact Form' ? CONTACT_SHEET_NAME : BOOKING_SHEET_NAME;
-  var headers = formSource === 'Contact Form' ? CONTACT_HEADERS : BOOKING_HEADERS;
+  var sheetName = isBooking ? BOOKING_SHEET_NAME : CONTACT_SHEET_NAME;
+  var headers = isBooking ? BOOKING_HEADERS : CONTACT_HEADERS;
 
-  var sheet = getOrCreateSheet_(sheetName, sheetName === BOOKING_SHEET_NAME ? 0 : 1);
+  var sheet = getOrCreateSheet_(sheetName, isBooking ? 0 : 1);
   ensureHeaders_(sheet, headers);
 
   var row = headers.map(function (col) {
@@ -100,6 +136,10 @@ function doPost(e) {
   });
 
   sheet.appendRow(row);
+
+  if (isBooking) {
+    notifyBossOfBooking_(params);
+  }
 
   return ContentService.createTextOutput('OK');
 }
@@ -121,6 +161,39 @@ function ensureHeaders_(sheet, headers) {
   var matches = headers.every(function (h, i) { return current[i] === h; });
   if (!matches) {
     range.setValues([headers]);
+  }
+}
+
+/**
+ * Texts the boss a new-booking summary via Twilio, replacing the old
+ * FormSubmit.co email notification. Reads credentials from Script
+ * Properties (Project Settings → Script Properties in the Apps Script
+ * editor) — never hardcode them here, since this file is checked into git
+ * as documentation.
+ */
+function notifyBossOfBooking_(params) {
+  var props = PropertiesService.getScriptProperties();
+  var sid = props.getProperty('TWILIO_ACCOUNT_SID');
+  var token = props.getProperty('TWILIO_AUTH_TOKEN');
+  var fromNumber = props.getProperty('TWILIO_FROM_NUMBER');
+  var bossNumber = props.getProperty('BOSS_PHONE_NUMBER');
+  if (!sid || !token || !fromNumber || !bossNumber) return;
+
+  var name = [params['First Name'], params['Last Name']].filter(String).join(' ') || 'Someone';
+  var when = [params['Preferred Date'], params['Preferred Time']].filter(String).join(' ');
+  var body = name + ' (' + (params['Phone'] || 'no phone') + ') booked a free cleaning'
+    + (when ? ' for ' + when : '') + '. ' + (params['Property Address'] || '');
+
+  var url = 'https://api.twilio.com/2010-04-01/Accounts/' + sid + '/Messages.json';
+  try {
+    UrlFetchApp.fetch(url, {
+      method: 'post',
+      payload: { To: bossNumber, From: fromNumber, Body: body },
+      headers: { Authorization: 'Basic ' + Utilities.base64Encode(sid + ':' + token) },
+      muteHttpExceptions: true
+    });
+  } catch (err) {
+    // Don't let an SMS failure block the sheet log that already succeeded above.
   }
 }
 ```
@@ -130,36 +203,47 @@ function ensureHeaders_(sheet, headers) {
 1. Open the "Genesis Pool and Spa - Booking Requests" Sheet → **Extensions → Apps
    Script**.
 2. Replace `Code.gs` with the script above.
-3. **Deploy → New deployment → Web app.**
+3. **Project Settings (gear icon) → Script Properties** → add the four Twilio keys from
+   "Twilio SMS on new bookings" above (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
+   `TWILIO_FROM_NUMBER`, `BOSS_PHONE_NUMBER`). Skippable for now — bookings still log to
+   the Sheet without them, just no text goes out — but needed for the SMS to actually
+   fire.
+4. **Deploy → New deployment → Web app.**
    - Execute as: **Me**
-   - Who has access: **Anyone** (the site posts to this anonymously, with `no-cors` /
-     `sendBeacon` — there's no auth token in either client)
-4. Copy the deployed `/exec` URL into `window.APPS_SCRIPT_URL` in
+   - Who has access: **Anyone** (the site posts to this anonymously, with `no-cors`
+     `fetch` — there's no auth token in either client)
+5. Copy the deployed `/exec` URL into `window.APPS_SCRIPT_URL` in
    `Genesis-Pool-and-Spa-main/js/main.js` (currently a
    `'REPLACE_WITH_DEPLOYED_APPS_SCRIPT_URL'` placeholder — both forms' logging calls are
    guarded no-ops until this is set).
-5. On first run, `getOrCreateSheet_` / `ensureHeaders_` will create both tabs (or rename
+6. On first run, `getOrCreateSheet_` / `ensureHeaders_` will create both tabs (or rename
    an existing single combined tab manually beforehand if migrating old data — the script
    itself doesn't migrate existing rows).
-6. Re-deploy (**Deploy → Manage deployments → Edit → New version**) any time `Code.gs`
+7. Re-deploy (**Deploy → Manage deployments → Edit → New version**) any time `Code.gs`
    changes — editing the script alone doesn't update the live `/exec` URL's behavior.
 
 ## Open items
 
+- **Boss's phone number** (`BOSS_PHONE_NUMBER`) isn't set anywhere yet — needed before
+  the SMS notification can go out. Same open question as in [`twilio.md`](twilio.md).
 - Existing rows already logged under the old single-sheet/`Form Source`-column design (if
   any were captured before this split) aren't auto-migrated — split them into the two new
   tabs manually if that history needs to be kept.
 - Per [`twilio.md`](twilio.md), the Sheet is also the trigger source for the Twilio/Zapier
-  "reply YES → notify the boss" flow (Zap 1 watches for new booking rows) — that Zap's
-  trigger sheet/tab reference should be repointed at `Booking Requests` specifically now
-  that it's a named tab rather than the whole spreadsheet's one sheet.
+  "reply YES → notify the boss" flow (Zap 1 watches for new booking rows) — that's a
+  *different* flow from the `notifyBossOfBooking_` SMS added here (this one fires
+  immediately on every booking; that one is the lead-facing "reply YES to confirm a
+  call" flow). Zap 1's trigger sheet/tab reference should still be repointed at
+  `Booking Requests` specifically now that it's a named tab rather than the whole
+  spreadsheet's one sheet.
 
 ## Raw `Code.gs` (copy-paste)
 
 ```javascript
 /**
  * Genesis Pool and Spa — lead logging Web App.
- * Routes schedule.html and index.html #contact submissions to separate tabs.
+ * Routes schedule.html and index.html #contact submissions to separate tabs,
+ * and texts the boss via Twilio when a new booking comes in.
  */
 
 var BOOKING_SHEET_NAME = 'Booking Requests';
@@ -193,11 +277,12 @@ var CONTACT_HEADERS = [
 function doPost(e) {
   var params = (e && e.parameter) || {};
   var formSource = params['Form Source'];
+  var isBooking = formSource !== 'Contact Form';
 
-  var sheetName = formSource === 'Contact Form' ? CONTACT_SHEET_NAME : BOOKING_SHEET_NAME;
-  var headers = formSource === 'Contact Form' ? CONTACT_HEADERS : BOOKING_HEADERS;
+  var sheetName = isBooking ? BOOKING_SHEET_NAME : CONTACT_SHEET_NAME;
+  var headers = isBooking ? BOOKING_HEADERS : CONTACT_HEADERS;
 
-  var sheet = getOrCreateSheet_(sheetName, sheetName === BOOKING_SHEET_NAME ? 0 : 1);
+  var sheet = getOrCreateSheet_(sheetName, isBooking ? 0 : 1);
   ensureHeaders_(sheet, headers);
 
   var row = headers.map(function (col) {
@@ -206,6 +291,10 @@ function doPost(e) {
   });
 
   sheet.appendRow(row);
+
+  if (isBooking) {
+    notifyBossOfBooking_(params);
+  }
 
   return ContentService.createTextOutput('OK');
 }
@@ -227,6 +316,39 @@ function ensureHeaders_(sheet, headers) {
   var matches = headers.every(function (h, i) { return current[i] === h; });
   if (!matches) {
     range.setValues([headers]);
+  }
+}
+
+/**
+ * Texts the boss a new-booking summary via Twilio, replacing the old
+ * FormSubmit.co email notification. Reads credentials from Script
+ * Properties (Project Settings → Script Properties in the Apps Script
+ * editor) — never hardcode them here, since this file is checked into git
+ * as documentation.
+ */
+function notifyBossOfBooking_(params) {
+  var props = PropertiesService.getScriptProperties();
+  var sid = props.getProperty('TWILIO_ACCOUNT_SID');
+  var token = props.getProperty('TWILIO_AUTH_TOKEN');
+  var fromNumber = props.getProperty('TWILIO_FROM_NUMBER');
+  var bossNumber = props.getProperty('BOSS_PHONE_NUMBER');
+  if (!sid || !token || !fromNumber || !bossNumber) return;
+
+  var name = [params['First Name'], params['Last Name']].filter(String).join(' ') || 'Someone';
+  var when = [params['Preferred Date'], params['Preferred Time']].filter(String).join(' ');
+  var body = name + ' (' + (params['Phone'] || 'no phone') + ') booked a free cleaning'
+    + (when ? ' for ' + when : '') + '. ' + (params['Property Address'] || '');
+
+  var url = 'https://api.twilio.com/2010-04-01/Accounts/' + sid + '/Messages.json';
+  try {
+    UrlFetchApp.fetch(url, {
+      method: 'post',
+      payload: { To: bossNumber, From: fromNumber, Body: body },
+      headers: { Authorization: 'Basic ' + Utilities.base64Encode(sid + ':' + token) },
+      muteHttpExceptions: true
+    });
+  } catch (err) {
+    // Don't let an SMS failure block the sheet log that already succeeded above.
   }
 }
 ```

@@ -9,12 +9,34 @@ automation belongs here instead.
 
 - **+1 916-251-4798** — already live on the site (header/promo bar "Call" links, hero
   CTA, contact section, footer).
-- Currently scoped to the **AI SMS channel only** (see "Text — AI SMS" below) — not used
-  for the "Call — talk to one of us" SMS confirm-flow's outbound messages, nor for the
-  email flow (that's Zapier + Gmail, no Twilio involved — see `plan.md`'s Contact
-  Preference Popup section).
+- Currently scoped to the **AI SMS channel only** (see "Text — AI SMS" below) and now also
+  the **booking notification SMS** (see below) — not used for the "Call — talk to one of
+  us" SMS confirm-flow's outbound messages, nor for the email flow (that's Zapier +
+  Gmail, no Twilio involved — see `plan.md`'s Contact Preference Popup section).
 - Open question: does this same number also carry live voice calls (forwarded to staff),
   or should voice ring a separate line from the AI SMS number?
+
+---
+
+## Booking Notification SMS (replaces FormSubmit.co email)
+
+**Status: built.** `schedule.html` used to email new bookings via FormSubmit.co (which
+also required a one-time "click to activate" step on first use). That's been dropped
+entirely — every `schedule.html` submission now texts the boss directly via Twilio's REST
+API, called straight from the Apps Script's `doPost` (see
+[`google-apps-script.md`](google-apps-script.md)'s "Twilio SMS on new bookings" section
+for the full `notifyBossOfBooking_` implementation). No Zapier involved for this one —
+it's a direct `UrlFetchApp.fetch` call to `api.twilio.com` using the same
++1 916-251-4798 number as the `TWILIO_FROM_NUMBER`.
+
+This is a **different, simpler flow** than the "Call — talk to one of us" SMS confirm-flow
+below — that one is lead-facing (asks the *lead* to reply YES before the boss gets
+notified); this one fires immediately, straight to the boss, on every booking, no lead
+interaction involved.
+
+**Blocked on**: the boss's phone number (`BOSS_PHONE_NUMBER`) and a Twilio Account
+SID/Auth Token, entered as Script Properties in the Apps Script project — not stored in
+this repo. See `google-apps-script.md`'s Deployment steps.
 
 ---
 
