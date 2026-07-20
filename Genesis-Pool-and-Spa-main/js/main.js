@@ -4,7 +4,7 @@
 
 // Google Apps Script Web App URL that logs form submissions to the
 // Booking Requests sheet. Update this one line once the script is deployed.
-window.APPS_SCRIPT_URL = 'REPLACE_WITH_DEPLOYED_APPS_SCRIPT_URL';
+window.APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyc4T3oXQhQ283xWYTx9Li9FKjl7qNxvMVkdR_GI7Uh6EvFTEuIPdl39B4jOZP5bNOr/exec';
 
 (function () {
   'use strict';
